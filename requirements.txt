@@ -1,0 +1,3 @@
+# The app itself runs on the standard library alone - nothing to install here.
+# Development only:
+pytest>=8.0

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Satisfactory Build Planner</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>Satisfactory Build Planner</h1>
+  <div class="header-actions">
+    <span id="save-label" class="muted">no save loaded</span>
+    <button id="refresh">Re-read save</button>
+  </div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="grid">Grid</button>
+  <button data-tab="sourcing">Resources</button>
+  <button data-tab="plan">Plan</button>
+  <button data-tab="setup">Setup</button>
+</nav>
+
+<main>
+  <section id="tab-overview" class="tab active">
+    <div id="progress-cards" class="cards"></div>
+    <h2>What is still missing</h2>
+    <div id="diff-table"></div>
+    <h2>Parts needed to build it</h2>
+    <div id="shopping-table"></div>
+    <h2>Build order</h2>
+    <div id="build-order"></div>
+    <h2>Machines not in the plan</h2>
+    <div id="unplanned"></div>
+  </section>
+
+  <section id="tab-grid" class="tab">
+    <div class="grid-toolbar">
+      <span id="grid-anchor" class="muted"></span>
+      <span id="grid-readout" class="mono"></span>
+      <label><input type="checkbox" id="show-foundations" checked> foundations</label>
+      <button id="grid-reset">Recentre</button>
+    </div>
+    <canvas id="grid-canvas"></canvas>
+    <p class="muted small">
+      The grid is locked to your own foundations, so a cell here is the same cell in game.
+      Orange outlines are machines the plan is missing; hover to read the world coordinates.
+      Terrain is not known to the planner - check suggestions away from your base before building.
+    </p>
+  </section>
+
+  <section id="tab-sourcing" class="tab">
+    <h2>Raw resources this plan needs</h2>
+    <div id="sourcing-list"></div>
+  </section>
+
+  <section id="tab-plan" class="tab">
+    <h2>Current plan</h2>
+    <p class="muted">Edit as JSON for now. Import from Satisfactory Modeler on the Setup tab once its format is known.</p>
+    <textarea id="plan-json" spellcheck="false"></textarea>
+    <div class="row">
+      <button id="plan-save">Save plan</button>
+      <span id="plan-status" class="muted"></span>
+    </div>
+  </section>
+
+  <section id="tab-setup" class="tab">
+    <h2>Status</h2>
+    <div id="status-block"></div>
+    <h2>Save files</h2>
+    <div id="save-list"></div>
+    <h2>Satisfactory Modeler</h2>
+    <p class="muted">
+      Modeler's project format is not documented. Scan its folder and the app will
+      report exactly what the files are, and import them if they are readable.
+    </p>
+    <div class="row">
+      <input id="modeler-dir" type="text" placeholder="C:\Program Files (x86)\Steam\steamapps\common\Satisfactory Modeler">
+      <button id="modeler-scan">Scan folder</button>
+    </div>
+    <div id="modeler-results"></div>
+  </section>
+</main>
+
+<div id="toast"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
