@@ -129,9 +129,11 @@ game, and a real save:
 2. ~~The Modeler solver.~~ **Done.** All 21 nodes of the sample plan match
    Modeler's displayed rates and machine counts. Phases other than 2 use the
    game's published requirements and are unchecked against Modeler.
-3. **The Windows build.** The PyInstaller packaging and the CI workflow have
-   never been run - the development container is Linux and PyInstaller does not
-   cross-compile. Expect to iterate on the first build.
+3. ~~The Windows build.~~ **Done.** The workflow builds the exe on a Windows
+   runner, then `scripts/smoke_exe.py` starts it against the fixture save and
+   checks that the save is read and a report comes back before the artifact is
+   uploaded. What has not been tried is running the exe on a machine with the
+   game installed, where it has to find the save folder and docs on its own.
 4. **The somersloop model.** Overclocking is exact (output scales linearly,
    power by the game's `clock^1.321928`). Somersloop amplification is modelled
    as linear output and quadratic power, which matches the common understanding
@@ -183,6 +185,7 @@ src/satplanner/
 scripts/
   fetch_parser.py     downloads the save parser into vendor/
   build_exe.py        packages the Windows executable
+  smoke_exe.py        starts the packaged executable and checks it serves a report
 tests/                93 tests; fixtures include a real save, the game docs and a Modeler export
 ```
 
