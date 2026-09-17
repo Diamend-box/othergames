@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from .model import Plan, PlanBlock, PlanMachine
+from .sfmd import import_sfmd, looks_like_sfmd
 
 # File extensions that belong to the application rather than the player's work.
 _IGNORED_SUFFIXES = {
@@ -226,8 +227,12 @@ def _walk_for_machines(payload: Any, depth: int = 0) -> list[PlanMachine]:
     return found
 
 
-def import_json_plan(payload: Any, name: str, source: str) -> Plan:
+def import_json_plan(payload: Any, name: str, source: str, docs=None) -> Plan:
     """Turn a JSON document into a plan, natively or by inference."""
+    if looks_like_sfmd(payload):
+        plan, warnings = import_sfmd(payload, name=name, source=source, docs=docs)
+        plan.warnings = warnings
+        return plan
     if isinstance(payload, dict) and "blocks" in payload:
         plan = Plan.from_dict(payload)
         plan.source = source
@@ -246,7 +251,7 @@ def import_json_plan(payload: Any, name: str, source: str) -> Plan:
     )
 
 
-def import_plan(path: Path) -> Plan:
+def import_plan(path: Path, docs=None) -> Plan:
     """Import a Modeler export, or explain precisely why it could not be."""
     path = Path(path)
     report = sniff_file(path)
@@ -256,7 +261,7 @@ def import_plan(path: Path) -> Plan:
                 payload = json.loads(path.read_text(encoding=encoding))
             except (UnicodeError, json.JSONDecodeError):
                 continue
-            return import_json_plan(payload, name=path.stem, source=f"modeler:{path.name}")
+            return import_json_plan(payload, name=path.stem, source=f"modeler:{path.name}", docs=docs)
         raise UnknownModelerFormat("File looked like JSON but could not be decoded.", report)
     raise UnknownModelerFormat(
         f"'{path.name}' is {report.kind}, which the importer cannot read yet. {report.detail}",

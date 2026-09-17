@@ -31,7 +31,7 @@ from .model import FactoryState, Machine, Miner, Placement, Storage, Structure
 SUPPORTED_SAVE_VERSIONS = {
     58: "1.2.0.0 - 1.2.1.0",
     59: "1.2.2.0",
-    60: "1.2.2.1",
+    60: "1.2.2.1 - 1.2.4.0",  # confirmed against a real 1.2.4.0 save
 }
 
 _MAX_WARNINGS = 25
@@ -160,9 +160,9 @@ def build_state(sav_parse, parsed_save: Any, docs: GameData | None = None, sourc
         state.save_name = str(getattr(info, "saveName", "") or "")
         state.save_version = int(getattr(info, "saveVersion", 0) or 0)
         state.build_version = int(getattr(info, "buildVersion", 0) or 0)
-        play_ticks = getattr(info, "playDurationSeconds", None)
-        if isinstance(play_ticks, (int, float)):
-            state.play_time_seconds = float(play_ticks)
+        played = getattr(info, "playDurationInSeconds", None)
+        if isinstance(played, (int, float)):
+            state.play_time_seconds = float(played)
 
     if state.save_version and state.save_version not in SUPPORTED_SAVE_VERSIONS:
         state.warnings.append(
@@ -190,6 +190,13 @@ def build_state(sav_parse, parsed_save: Any, docs: GameData | None = None, sourc
             if not type_path or not instance_name:
                 continue
             class_name = cn.class_name_from_path(type_path)
+            if class_name == "Char_Player_C":
+                # Pockets count as stock too: the player character's inventory
+                # component is reached the same way a container's is.
+                obj = objects_by_name.get(instance_name)
+                for item, count in _inventory_of(sav_parse, obj, objects_by_name).items():
+                    state.player_inventory[item] = state.player_inventory.get(item, 0) + count
+                continue
             if not class_name.startswith("Build_"):
                 continue
 

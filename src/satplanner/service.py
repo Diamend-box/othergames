@@ -140,7 +140,7 @@ class PlannerService:
 
     def import_modeler(self, path: str) -> dict[str, object]:
         try:
-            plan = modeler.import_plan(Path(path))
+            plan = modeler.import_plan(Path(path), docs=self.docs)
         except modeler.UnknownModelerFormat as exc:
             return {
                 "ok": False,
@@ -151,7 +151,7 @@ class PlannerService:
             return {"ok": False, "error": str(exc)}
         self.plan = plan
         self.save_plan()
-        return {"ok": True, "plan": self.plan.to_dict()}
+        return {"ok": True, "plan": self.plan.to_dict(), "warnings": plan.warnings}
 
     # -- the report --------------------------------------------------------
 

@@ -50,6 +50,7 @@ class Plan:
     name: str = "Untitled plan"
     blocks: list[PlanBlock] = field(default_factory=list)
     source: str = "manual"
+    warnings: list[str] = field(default_factory=list)
 
     def machine_counts(self) -> dict[tuple[str, str], int]:
         counts: dict[tuple[str, str], int] = defaultdict(int)

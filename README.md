@@ -7,11 +7,12 @@ to get the raw materials.
 Runs as a single Windows `.exe`. Double-click it and the interface opens in your
 browser; it re-reads your save every minute, or on demand.
 
-> **Status: scaffold, not yet proven against a real save.** Every piece of logic
-> in here is tested, but the code that reads the actual `.sav` binary has only
-> been tested against stand-in data - see [What still needs
-> checking](#what-still-needs-checking). It is also currently living inside the
-> `ghost-sim` repository and is meant to move to its own repo later; nothing in
+> **Status: save reading verified against a real 1.2.4.0 save.** Machines,
+> recipes, overclocks, extractors and their nodes, container and player
+> inventories all read correctly. The Modeler importer reads the `.sfmd`
+> graph but its rate solver is provisional - see [What still needs
+> checking](#what-still-needs-checking). The project currently lives inside
+> the `ghost-sim` repository and is meant to move to its own repo; nothing in
 > it depends on where it sits.
 
 ---
@@ -98,39 +99,39 @@ Plans are saved to `%APPDATA%\satplanner\plan.json`.
 
 ### Importing from Satisfactory Modeler
 
-Modeler's project format is not documented anywhere public, and Steam Community
-is blocked from the machine this was built on, so **the importer does not assume
-a format**. Instead:
+Modeler's Export writes an `.sfmd` file: JSON describing a **graph**. Each node
+is an item ("Iron Plate", "Rotor") whose `Inputs` point at the nodes feeding
+it; raw resources carry a per-minute `Max` cap; and `"Solver": "Full"` means
+Modeler works out every rate and machine count itself and stores none of them.
+Importing therefore re-solves the graph using the game's recipe data.
 
-1. Setup tab → point it at the Modeler folder → **Scan folder**.
-2. It reports what every file actually is: JSON (with its top-level keys),
-   SQLite (with its table names), zip, XML, or opaque binary (with any readable
-   strings, which usually name the format).
-3. Anything readable gets an **Import** button. For JSON it looks for
-   machine-shaped records anywhere in the document - keys like `recipe`,
-   `machine`, `count`, `clockSpeed` - so a reasonable export will import without
-   any more work.
+The graph read is settled (`plan/sfmd.py`). The solver's semantics are
+inferred - demand-driven rates, scaled up until the tightest raw cap is met,
+node `Max` values as caps - and are flagged provisional until checked against
+what Modeler displays for a known plan. Nodes with no matching recipe (Modeler
+pseudo-nodes such as "Space Elevator Phase 2") are reported, not guessed.
 
-If the scan comes back "binary", send the file over and teaching the importer
-its shape is a small job. Until then, the Plan tab edits plans directly.
+Setup tab → point it at the Modeler folder or an exported file → **Scan** →
+**Import**. Without the game's recipe file the shape imports with one machine
+per step and a warning.
 
 ## What still needs checking
 
 These are the things that could not be verified without a Windows machine, the
 game, and a real save:
 
-1. **The save adapter against a real 1.2 save.** The parser explicitly supports
-   save versions 58, 59 and 60 (game builds 1.2.0.0 through 1.2.2.1) and the
-   walk over its data structures is tested against stand-in objects - but the
-   *property names* it reads (`mCurrentRecipe`, `mCurrentPotential`,
-   `mExtractResourceNode`, `mStorageInventory`, `mInventoryStacks`) have not
-   been confirmed against a real file. If a machine's recipe comes back empty,
-   this is the first place to look. Unknown save versions raise a warning in the
-   UI rather than failing.
-2. **The Windows build.** The PyInstaller packaging and the CI workflow have
+1. ~~The save adapter against a real 1.2 save.~~ **Done.** Verified against a
+   1.2.4.0 save (save format 60, build 502094): 109 machines with recipes and
+   clocks, 48 extractors with node links, 58 containers, player inventory and
+   play time all correct. Unknown save versions still raise a warning in the UI
+   rather than failing.
+2. **The Modeler solver.** The `.sfmd` graph reads correctly (the real export
+   is a test fixture). Whether the solved rates match Modeler's own numbers
+   needs a side-by-side with a plan open in Modeler - in particular what
+   `Max: 1` on a space-elevator node means.
+3. **The Windows build.** The PyInstaller packaging and the CI workflow have
    never been run - the development container is Linux and PyInstaller does not
    cross-compile. Expect to iterate on the first build.
-3. **Modeler's format**, as above.
 4. **The somersloop model.** Overclocking is exact (output scales linearly,
    power by the game's `clock^1.321928`). Somersloop amplification is modelled
    as linear output and quadratic power, which matches the common understanding
@@ -142,6 +143,9 @@ game, and a real save:
   like. Placement suggestions avoid cells that are already occupied and cluster
   near their block, but the app will happily suggest a cell in a lake. Near an
   existing base they are sound; far from one, check before building.
+- **The grid needs foundations.** A base built freehand on terrain has no
+  lattice to recover; the app says so and falls back to the world origin. Lay
+  foundations anywhere and refresh.
 - **Axis-aligned grids only.** A foundation field built at an angle will not
   line up; the vote across foundations picks the dominant offset and treats the
   rest as outliers.
@@ -167,7 +171,8 @@ src/satplanner/
     discovery.py      finding save files, watching for new ones
   plan/
     model.py          plans, blocks, machines; JSON round-trip
-    modeler.py        format sniffing and import for Satisfactory Modeler
+    modeler.py        format sniffing and import dispatch for Satisfactory Modeler
+    sfmd.py           the .sfmd graph reader and (provisional) rate solver
   analysis/
     production.py     rates, power, throughput
     diff.py           built vs planned, and the construction shopping list
@@ -178,7 +183,7 @@ src/satplanner/
 scripts/
   fetch_parser.py     downloads the save parser into vendor/
   build_exe.py        packages the Windows executable
-tests/                82 tests, no game or save file required
+tests/                90 tests, no game or save file required
 ```
 
 Run the tests with `python -m pytest`.
