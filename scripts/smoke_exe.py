@@ -39,6 +39,27 @@ def get(url: str) -> dict:
         return json.loads(response.read())
 
 
+def stop(proc: subprocess.Popen) -> None:
+    """End the exe and everything it started.
+
+    A one-file PyInstaller exe is a bootloader that runs the program in a child
+    process. On Windows terminating the parent leaves that child running, so
+    the whole tree has to go; on other platforms the bootloader passes the
+    signal on itself.
+    """
+    if proc.poll() is not None:
+        return
+    if sys.platform == "win32":
+        subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
+    else:
+        proc.terminate()
+    try:
+        proc.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
 def wait_for(url: str, proc: subprocess.Popen, deadline: float) -> dict:
     while time.time() < deadline:
         if proc.poll() is not None:
@@ -57,7 +78,7 @@ def main() -> int:
 
     port = free_port()
     base = f"http://127.0.0.1:{port}"
-    with tempfile.TemporaryDirectory() as state_home:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as state_home:
         # Keep the app's own files (the saved plan) out of the real profile.
         env = dict(os.environ, APPDATA=state_home, XDG_DATA_HOME=state_home)
         cmd = [
@@ -68,7 +89,7 @@ def main() -> int:
             "--docs", str(FIXTURES / "en-US.json"),
         ]
         print(" ".join(cmd))
-        proc = subprocess.Popen(cmd, env=env, cwd=state_home)
+        proc = subprocess.Popen(cmd, env=env, cwd=ROOT)
         try:
             status = wait_for(f"{base}/api/status", proc, time.time() + STARTUP_SECONDS)
             print("status:", json.dumps(status, indent=2, default=str))
@@ -98,12 +119,7 @@ def main() -> int:
             print("OK: the executable starts, reads the save and serves a report")
             return 0
         finally:
-            proc.terminate()
-            try:
-                proc.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                proc.wait()
+            stop(proc)
 
 
 if __name__ == "__main__":
