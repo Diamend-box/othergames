@@ -1,0 +1,12 @@
+vendor/
+__pycache__/
+*.pyc
+.venv/
+venv/
+build/
+dist/
+*.spec
+.pytest_cache/
+.satplanner/
+*.sav
+!tests/fixtures/*.sav

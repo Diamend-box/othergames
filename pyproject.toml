@@ -1,0 +1,23 @@
+[project]
+name = "satplanner"
+version = "0.1.0"
+description = "Reads a Satisfactory save, compares it against a factory plan, and works out what to build next and where."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+satplanner = "satplanner.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+satplanner = ["web/static/*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
