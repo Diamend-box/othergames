@@ -22,6 +22,17 @@ from ..service import PlannerService
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 MAX_BODY_BYTES = 8 * 1024 * 1024
 
+# Fixed types for the files we ship. `mimetypes` consults the OS registry, so
+# on Windows `.js` comes back as application/javascript and the served type
+# would depend on the machine; these keep it the same everywhere.
+STATIC_CONTENT_TYPES = {
+    ".html": "text/html",
+    ".js": "text/javascript",
+    ".css": "text/css",
+    ".json": "application/json",
+    ".svg": "image/svg+xml",
+}
+
 
 class Handler(BaseHTTPRequestHandler):
     service: PlannerService  # injected by make_server
@@ -62,7 +73,11 @@ class Handler(BaseHTTPRequestHandler):
         if not target.is_file() or STATIC_DIR.resolve() not in target.parents:
             self._send(404, b"Not found", "text/plain")
             return
-        content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        content_type = (
+            STATIC_CONTENT_TYPES.get(target.suffix.lower())
+            or mimetypes.guess_type(target.name)[0]
+            or "application/octet-stream"
+        )
         self._send(200, target.read_bytes(), content_type)
 
     # -- routes ------------------------------------------------------------

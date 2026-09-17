@@ -35,6 +35,9 @@ def main() -> int:
         "--onefile",
         "--name", "SatisfactoryPlanner",
         "--paths", str(ROOT / "src"),
+        # The parser has to be findable at analysis time too, or PyInstaller
+        # cannot follow its imports and leaves its dependencies out of the exe.
+        "--paths", str(parser),
         # The UI files and the save parser both have to travel with the exe.
         "--add-data", f"{static}{SEPARATOR}satplanner/web/static",
         "--add-data", f"{parser}{SEPARATOR}sat_sav_parse",

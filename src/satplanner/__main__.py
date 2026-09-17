@@ -5,8 +5,10 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .config import Settings
-from .web.server import serve
+# Absolute imports on purpose: PyInstaller runs this file as a top-level
+# script, where relative imports have no parent package to resolve against.
+from satplanner.config import Settings
+from satplanner.web.server import serve
 
 
 def main() -> int:
