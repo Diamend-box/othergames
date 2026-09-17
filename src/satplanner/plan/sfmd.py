@@ -21,8 +21,27 @@ import math
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..gamedata import GameData, Recipe
+from ..gamedata import GameData, Ingredient, Recipe
 from .model import Plan, PlanBlock, PlanMachine
+
+# Modeler nodes that are not game recipes. The game's docs do not list the
+# Project Assembly phases, so Modeler carries its own table and so must we.
+# Each is modelled as Modeler does: the full delivery as one craft taking a
+# minute, so the node's "machine count" is phases per minute.
+#
+# Phase 2 is confirmed against Modeler's own display (10:10:1 at 0.01
+# machines). The others are the game's published requirements and have not
+# been checked against Modeler.
+PSEUDO_RECIPES: dict[str, dict[str, float]] = {
+    "Space Elevator Phase 1": {"Smart Plating": 50},
+    "Space Elevator Phase 2": {"Smart Plating": 1000, "Versatile Framework": 1000, "Automated Wiring": 100},
+    "Space Elevator Phase 3": {"Versatile Framework": 2500, "Modular Engine": 500, "Adaptive Control Unit": 100},
+    "Space Elevator Phase 4": {
+        "Assembly Director System": 4000, "Magnetic Field Generator": 4000,
+        "Nuclear Pasta": 1000, "Thermal Propulsion Rocket": 1000,
+    },
+    "Space Elevator Phase 5": {"Biochemical Sculptor": 1000, "Ballistic Warp Drive": 1000, "AI Expansion Server": 40},
+}
 
 
 @dataclass
@@ -101,18 +120,54 @@ def parse_sfmd(payload: dict) -> SfmdGraph:
 # -- solving ---------------------------------------------------------------
 
 
+def _norm(name: str) -> str:
+    """Modeler and the game disagree on plurals ("Screw" vs "Screws")."""
+    key = name.strip().lower()
+    return key[:-1] if key.endswith("s") and len(key) > 3 else key
+
+
+def _item_by_name(name: str, docs: GameData) -> str | None:
+    wanted = _norm(name)
+    for item in docs.items.values():
+        if _norm(item.display_name) == wanted:
+            return item.class_name
+    return None
+
+
+def _pseudo_recipe(name: str, docs: GameData) -> Recipe | None:
+    table = PSEUDO_RECIPES.get(name)
+    if table is None:
+        return None
+    ingredients = []
+    for item_name, amount in table.items():
+        item_class = _item_by_name(item_name, docs)
+        if item_class is None:
+            return None
+        ingredients.append(Ingredient(item_class, float(amount)))
+    product = f"Pseudo_{name.replace(' ', '')}_C"
+    return Recipe(
+        class_name=product, display_name=name, duration_s=60.0,
+        ingredients=tuple(ingredients), products=(Ingredient(product, 1.0),), produced_in=(),
+    )
+
+
 def _recipe_for(name: str, docs: GameData) -> Recipe | None:
     """The default recipe for an item, matched by display name.
 
     Modeler labels nodes with item names, and an alternate recipe would need
     to be spelled out in the node name; a plain name means the standard one.
+    Some nodes are Modeler's own (see PSEUDO_RECIPES).
     """
-    exact = [r for r in docs.recipes.values() if r.display_name == name and not r.is_alternate]
+    pseudo = _pseudo_recipe(name, docs)
+    if pseudo is not None:
+        return pseudo
+    wanted = _norm(name)
+    exact = [r for r in docs.recipes.values() if _norm(r.display_name) == wanted and not r.is_alternate]
     if exact:
         return exact[0]
     by_product = [
         r for r in docs.recipes.values()
-        if not r.is_alternate and r.primary_product and docs.item_name(r.primary_product) == name
+        if not r.is_alternate and r.primary_product and _norm(docs.item_name(r.primary_product)) == wanted
     ]
     return by_product[0] if by_product else None
 
@@ -159,9 +214,9 @@ def solve(graph: SfmdGraph, docs: GameData) -> tuple[list[SolvedNode], list[str]
         product_per_craft = next((p.amount for p in recipe.products if p.item == recipe.primary_product), 0.0)
         if product_per_craft <= 0:
             continue
+        inputs_by_key = {_norm(k): v for k, v in entry.node.inputs.items()}
         for ingredient in recipe.ingredients:
-            ingredient_name = docs.item_name(ingredient.item)
-            source = entry.node.inputs.get(ingredient_name)
+            source = inputs_by_key.get(_norm(docs.item_name(ingredient.item)))
             if source is None:
                 continue
             unit_demand[source] += unit_demand[index] * ingredient.amount / product_per_craft
@@ -230,8 +285,8 @@ def import_sfmd(payload: dict, name: str, source: str, docs: GameData | None = N
     solved, solve_warnings = solve(graph, docs)
     warnings.extend(solve_warnings)
     for entry in solved:
-        if entry.node.is_raw or entry.recipe is None:
-            continue
+        if entry.node.is_raw or entry.recipe is None or not entry.recipe.produced_in:
+            continue  # raws, unknowns and Modeler-only nodes are not buildings
         count = max(1, math.ceil(entry.machines - 1e-9)) if entry.machines > 0 else 0
         if count == 0:
             continue

@@ -7,11 +7,11 @@ to get the raw materials.
 Runs as a single Windows `.exe`. Double-click it and the interface opens in your
 browser; it re-reads your save every minute, or on demand.
 
-> **Status: save reading verified against a real 1.2.4.0 save.** Machines,
-> recipes, overclocks, extractors and their nodes, container and player
-> inventories all read correctly. The Modeler importer reads the `.sfmd`
-> graph but its rate solver is provisional - see [What still needs
-> checking](#what-still-needs-checking). The project currently lives inside
+> **Status: verified against real data.** Save reading is confirmed on a
+> 1.2.4.0 save, recipe loading on the game's own `en-US.json`, and the
+> Modeler importer reproduces Modeler's displayed rates and machine counts for
+> a 21-node plan to the second decimal. What is left is the Windows build -
+> see [What still needs checking](#what-still-needs-checking). The project currently lives inside
 > the `ghost-sim` repository and is meant to move to its own repo; nothing in
 > it depends on where it sits.
 
@@ -105,11 +105,14 @@ it; raw resources carry a per-minute `Max` cap; and `"Solver": "Full"` means
 Modeler works out every rate and machine count itself and stores none of them.
 Importing therefore re-solves the graph using the game's recipe data.
 
-The graph read is settled (`plan/sfmd.py`). The solver's semantics are
-inferred - demand-driven rates, scaled up until the tightest raw cap is met,
-node `Max` values as caps - and are flagged provisional until checked against
-what Modeler displays for a known plan. Nodes with no matching recipe (Modeler
-pseudo-nodes such as "Space Elevator Phase 2") are reported, not guessed.
+The solver (`plan/sfmd.py`) is demand-driven: rates flow back from the sink
+to the raws and the whole graph scales up until the tightest raw cap is met,
+with any node `Max` as a further cap. This reproduces Modeler's own display
+for a real 21-node plan exactly (`tests/test_real_data.py`). Space elevator
+phases are Modeler pseudo-nodes not present in the game's docs, so they are
+tabled in `PSEUDO_RECIPES`; Phase 2 is confirmed, the rest are the game's
+published requirements. Item names are matched tolerantly ("Screw" vs the
+game's "Screws").
 
 Setup tab → point it at the Modeler folder or an exported file → **Scan** →
 **Import**. Without the game's recipe file the shape imports with one machine
@@ -125,10 +128,9 @@ game, and a real save:
    clocks, 48 extractors with node links, 58 containers, player inventory and
    play time all correct. Unknown save versions still raise a warning in the UI
    rather than failing.
-2. **The Modeler solver.** The `.sfmd` graph reads correctly (the real export
-   is a test fixture). Whether the solved rates match Modeler's own numbers
-   needs a side-by-side with a plan open in Modeler - in particular what
-   `Max: 1` on a space-elevator node means.
+2. ~~The Modeler solver.~~ **Done.** All 21 nodes of the sample plan match
+   Modeler's displayed rates and machine counts. Phases other than 2 use the
+   game's published requirements and are unchecked against Modeler.
 3. **The Windows build.** The PyInstaller packaging and the CI workflow have
    never been run - the development container is Linux and PyInstaller does not
    cross-compile. Expect to iterate on the first build.
@@ -183,7 +185,7 @@ src/satplanner/
 scripts/
   fetch_parser.py     downloads the save parser into vendor/
   build_exe.py        packages the Windows executable
-tests/                90 tests, no game or save file required
+tests/                93 tests; fixtures include a real save, the game docs and a Modeler export
 ```
 
 Run the tests with `python -m pytest`.

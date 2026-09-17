@@ -233,7 +233,11 @@ def parse_docs(payload: list[dict], source: str | None = None) -> GameData:
             data.recipes[class_name] = Recipe(
                 class_name=class_name,
                 display_name=entry.get("mDisplayName") or _readable(class_name),
-                duration_s=_parse_float(entry.get("mManufactureDuration")),
+                # The game spells this "mManufactoringDuration"; both are accepted
+                # in case the typo is ever fixed upstream.
+                duration_s=_parse_float(
+                    entry.get("mManufactoringDuration", entry.get("mManufactureDuration"))
+                ),
                 ingredients=_parse_amounts(entry.get("mIngredients"), data.items),
                 products=_parse_amounts(entry.get("mProduct"), data.items),
                 produced_in=_parse_class_refs(entry.get("mProducedIn")),

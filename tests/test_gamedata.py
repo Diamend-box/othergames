@@ -51,7 +51,7 @@ def raw_docs():
                 {
                     "ClassName": "Recipe_IngotIron_C",
                     "mDisplayName": "Iron Ingot",
-                    "mManufactureDuration": "2.000000",
+                    "mManufactoringDuration": "2.000000",
                     "mIngredients": IRON_INGREDIENTS,
                     "mProduct": IRON_PRODUCT,
                     "mProducedIn": '("/Game/FactoryGame/Buildable/Factory/SmelterMk1/Build_SmelterMk1.Build_SmelterMk1_C")',
@@ -59,7 +59,7 @@ def raw_docs():
                 {
                     "ClassName": "Recipe_Alternate_CoatedPlate_C",
                     "mDisplayName": "Alternate: Coated Iron Plate",
-                    "mManufactureDuration": "8.000000",
+                    "mManufactoringDuration": "8.000000",
                     "mIngredients": PLATE_INGREDIENTS,
                     "mProduct": IRON_PRODUCT,
                     "mProducedIn": '("/Game/FactoryGame/Buildable/Factory/AssemblerMk1/Build_AssemblerMk1.Build_AssemblerMk1_C")',

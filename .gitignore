@@ -9,3 +9,4 @@ dist/
 .pytest_cache/
 .satplanner/
 *.sav
+!tests/fixtures/*.sav
