@@ -11,9 +11,7 @@ browser; it re-reads your save every minute, or on demand.
 > 1.2.4.0 save, recipe loading on the game's own `en-US.json`, and the
 > Modeler importer reproduces Modeler's displayed rates and machine counts for
 > a 21-node plan to the second decimal. What is left is the Windows build -
-> see [What still needs checking](#what-still-needs-checking). The project currently lives inside
-> the `ghost-sim` repository and is meant to move to its own repo; nothing in
-> it depends on where it sits.
+> see [What still needs checking](#what-still-needs-checking).
 
 ---
 

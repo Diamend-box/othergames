@@ -2,7 +2,7 @@
 """Package the planner as a single Windows executable.
 
 Run on Windows (PyInstaller does not cross-compile). CI does this on a
-windows-latest runner; see .github/workflows/satisfactory-planner-windows.yml.
+windows-latest runner; see .github/workflows/windows-build.yml.
 
     python scripts/fetch_parser.py
     python scripts/build_exe.py
