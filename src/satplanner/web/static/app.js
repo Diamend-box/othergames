@@ -59,7 +59,7 @@ document.querySelectorAll("#tabs button").forEach((button) => {
     document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
     button.classList.add("active");
     $("tab-" + button.dataset.tab).classList.add("active");
-    if (button.dataset.tab === "grid") loadGrid();
+    if (button.dataset.tab === "map") SatMap.load();
     if (button.dataset.tab === "setup") loadSetup();
   });
 });
@@ -177,177 +177,6 @@ async function loadReport() {
   }
 }
 
-// -- grid -----------------------------------------------------------------
-
-const view = { x: 0, y: 0, scale: 0.02, data: null, dragging: false, lastX: 0, lastY: 0 };
-
-function worldToScreen(wx, wy) {
-  return [wx * view.scale + view.x, wy * view.scale + view.y];
-}
-
-function screenToWorld(sx, sy) {
-  return [(sx - view.x) / view.scale, (sy - view.y) / view.scale];
-}
-
-async function loadGrid() {
-  const data = await api("/api/grid");
-  if (!data.ok) {
-    $("grid-anchor").textContent = data.error || "No save loaded.";
-    return;
-  }
-  view.data = data;
-  $("grid-anchor").innerHTML =
-    `grid origin <span class="mono">${data.anchor.origin_x.toFixed(1)}, ${data.anchor.origin_y.toFixed(1)}</span> ` +
-    `&middot; cell ${data.anchor.cell_uu / 100} m &middot; from ${escapeHtml(data.anchor.source)}`;
-  recentre();
-}
-
-function recentre() {
-  const canvas = $("grid-canvas");
-  const points = (view.data?.built || []).concat(view.data?.suggested?.map((s) => ({ x: s.world_x, y: s.world_y })) || []);
-  if (!points.length) {
-    view.x = canvas.clientWidth / 2;
-    view.y = canvas.clientHeight / 2;
-    drawGrid();
-    return;
-  }
-  const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.y);
-  const spanX = Math.max(1, Math.max(...xs) - Math.min(...xs));
-  const spanY = Math.max(1, Math.max(...ys) - Math.min(...ys));
-  view.scale = Math.min(canvas.clientWidth / (spanX * 1.3), canvas.clientHeight / (spanY * 1.3));
-  const midX = (Math.max(...xs) + Math.min(...xs)) / 2;
-  const midY = (Math.max(...ys) + Math.min(...ys)) / 2;
-  view.x = canvas.clientWidth / 2 - midX * view.scale;
-  view.y = canvas.clientHeight / 2 - midY * view.scale;
-  drawGrid();
-}
-
-function drawGrid() {
-  const canvas = $("grid-canvas");
-  const dpr = window.devicePixelRatio || 1;
-  canvas.width = canvas.clientWidth * dpr;
-  canvas.height = canvas.clientHeight * dpr;
-  const ctx = canvas.getContext("2d");
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
-  if (!view.data) return;
-
-  const cell = view.data.anchor.cell_uu;
-  const anchor = view.data.anchor;
-
-  // Foundation lattice, drawn only when the cells are big enough to read.
-  const cellPx = cell * view.scale;
-  if (cellPx > 6) {
-    ctx.strokeStyle = "#252a35";
-    ctx.lineWidth = 1;
-    const [w0x, w0y] = screenToWorld(0, 0);
-    const [w1x, w1y] = screenToWorld(canvas.clientWidth, canvas.clientHeight);
-    const startX = Math.floor((w0x - anchor.origin_x) / cell) * cell + anchor.origin_x;
-    const startY = Math.floor((w0y - anchor.origin_y) / cell) * cell + anchor.origin_y;
-    ctx.beginPath();
-    for (let wx = startX; wx <= w1x; wx += cell) {
-      const [sx] = worldToScreen(wx, 0);
-      ctx.moveTo(sx, 0);
-      ctx.lineTo(sx, canvas.clientHeight);
-    }
-    for (let wy = startY; wy <= w1y; wy += cell) {
-      const [, sy] = worldToScreen(0, wy);
-      ctx.moveTo(0, sy);
-      ctx.lineTo(canvas.clientWidth, sy);
-    }
-    ctx.stroke();
-  }
-
-  if ($("show-foundations").checked) {
-    ctx.fillStyle = "rgba(120,132,156,0.28)";
-    for (const f of view.data.foundations) {
-      const [sx, sy] = worldToScreen(f.x, f.y);
-      const size = Math.max(2, cellPx * 0.9);
-      ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
-    }
-  }
-
-  const dot = Math.max(3, Math.min(14, cellPx * 0.55));
-  ctx.fillStyle = "#63c98a";
-  for (const m of view.data.built) {
-    const [sx, sy] = worldToScreen(m.x, m.y);
-    ctx.fillRect(sx - dot / 2, sy - dot / 2, dot, dot);
-  }
-
-  ctx.strokeStyle = "#f2a23c";
-  ctx.lineWidth = 2;
-  for (const s of view.data.suggested) {
-    const [sx, sy] = worldToScreen(s.world_x, s.world_y);
-    ctx.strokeRect(sx - dot / 2, sy - dot / 2, dot, dot);
-  }
-}
-
-function setupGridInteraction() {
-  const canvas = $("grid-canvas");
-
-  canvas.addEventListener("mousedown", (e) => {
-    view.dragging = true;
-    view.lastX = e.offsetX;
-    view.lastY = e.offsetY;
-  });
-  window.addEventListener("mouseup", () => (view.dragging = false));
-
-  canvas.addEventListener("mousemove", (e) => {
-    if (view.dragging) {
-      view.x += e.offsetX - view.lastX;
-      view.y += e.offsetY - view.lastY;
-      view.lastX = e.offsetX;
-      view.lastY = e.offsetY;
-      drawGrid();
-    }
-    if (!view.data) return;
-    const [wx, wy] = screenToWorld(e.offsetX, e.offsetY);
-    const anchor = view.data.anchor;
-    const cx = Math.floor((wx - anchor.origin_x) / anchor.cell_uu + 0.5);
-    const cy = Math.floor((wy - anchor.origin_y) / anchor.cell_uu + 0.5);
-    const near = nearestItem(wx, wy);
-    $("grid-readout").textContent =
-      `world ${wx.toFixed(0)}, ${wy.toFixed(0)}  |  cell ${cx}, ${cy}` + (near ? `  |  ${near}` : "");
-  });
-
-  canvas.addEventListener("wheel", (e) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
-    const [wx, wy] = screenToWorld(e.offsetX, e.offsetY);
-    view.scale *= factor;
-    view.x = e.offsetX - wx * view.scale;
-    view.y = e.offsetY - wy * view.scale;
-    drawGrid();
-  }, { passive: false });
-
-  $("show-foundations").addEventListener("change", drawGrid);
-  $("grid-reset").addEventListener("click", recentre);
-  window.addEventListener("resize", drawGrid);
-}
-
-function nearestItem(wx, wy) {
-  if (!view.data) return "";
-  const threshold = view.data.anchor.cell_uu;
-  let best = null;
-  let bestDist = threshold * threshold;
-  for (const m of view.data.built) {
-    const d = (m.x - wx) ** 2 + (m.y - wy) ** 2;
-    if (d < bestDist) {
-      bestDist = d;
-      best = `${m.building}: ${m.recipe}`;
-    }
-  }
-  for (const s of view.data.suggested) {
-    const d = (s.world_x - wx) ** 2 + (s.world_y - wy) ** 2;
-    if (d < bestDist) {
-      bestDist = d;
-      best = `build here: ${s.building} (${s.recipe})`;
-    }
-  }
-  return best || "";
-}
-
 // -- plan -----------------------------------------------------------------
 
 async function loadPlan() {
@@ -365,7 +194,10 @@ $("plan-save").addEventListener("click", async () => {
   }
   const result = await post("/api/plan", { plan: parsed });
   $("plan-status").textContent = result.ok ? "Saved." : result.error;
-  if (result.ok) loadReport();
+  if (result.ok) {
+    loadReport();
+    SatMap.load();
+  }
 });
 
 // -- setup ----------------------------------------------------------------
@@ -456,10 +288,10 @@ $("refresh").addEventListener("click", async () => {
   const result = await post("/api/refresh", { force: true });
   toast(result.ok ? "Save re-read." : result.error);
   loadReport();
-  if ($("tab-grid").classList.contains("active")) loadGrid();
+  if ($("tab-map").classList.contains("active")) SatMap.load();
 });
 
-setupGridInteraction();
+SatMap.setup();
 loadReport();
 loadPlan();
 

@@ -223,14 +223,78 @@ class PlannerService:
             "placements": [s.describe(self.docs) for s in suggestions],
         }
 
+    def _wanted_node_names(self, state: FactoryState) -> set[str]:
+        """Nodes the current plan would have to tap to cover its raw inputs.
+
+        The map paints these differently from merely free nodes, so the answer
+        to "where do I mine next" is visible without opening the Resources tab.
+        A plan the docs cannot cost out simply has no wanted nodes.
+        """
+        if not self.docs.is_loaded or not self.plan.blocks:
+            return set()
+        try:
+            deficits = production.plan_throughput(self.plan, self.docs).deficit()
+        except Exception:  # an unusual plan should never cost us the map
+            return set()
+        wanted: set[str] = set()
+        for resource_class, rate in deficits.items():
+            for pick in resources.recommend_nodes(resource_class, rate, state):
+                wanted.add(pick.node.instance_name)
+        return wanted
+
+    def _map_nodes(self, state: FactoryState) -> list[dict[str, object]]:
+        """Every resource node in the world, tagged with what it means to you."""
+        occupied = state.occupied_nodes()
+        wanted = self._wanted_node_names(state)
+        out: list[dict[str, object]] = []
+        for node in resources.load_node_database():
+            if node.instance_name in occupied:
+                status = "tapped"
+            elif node.instance_name in wanted:
+                status = "wanted"
+            else:
+                status = "free"
+            out.append(
+                {
+                    "id": node.instance_name.rsplit(".", 1)[-1],
+                    "x": round(node.x, 1),
+                    "y": round(node.y, 1),
+                    "resource": self.docs.item_name(node.resource_class),
+                    "resource_class": node.resource_class,
+                    "purity": node.purity.capitalize(),
+                    "status": status,
+                }
+            )
+        return out
+
+    def _base_centre(self, state: FactoryState) -> dict[str, object] | None:
+        """Where your factory sits, so the map can fly to it."""
+        points = [m.placement.xy for m in state.machines] or [
+            f.placement.xy for f in state.foundations
+        ] or [m.placement.xy for m in state.miners]
+        if not points:
+            return None
+        xs = [p[0] for p in points]
+        ys = [p[1] for p in points]
+        return {
+            "x": round(sum(xs) / len(xs), 1),
+            "y": round(sum(ys) / len(ys), 1),
+            "min_x": round(min(xs), 1),
+            "min_y": round(min(ys), 1),
+            "max_x": round(max(xs), 1),
+            "max_y": round(max(ys), 1),
+        }
+
     def grid(self) -> dict[str, object]:
-        """Everything the grid view draws, in world coordinates."""
+        """Everything the map draws, in world coordinates."""
         if self.state is None:
             return {"ok": False, "error": "No save loaded yet."}
         state = self.state
         anchor = state.anchor
         report = diff_mod.diff_plan(state, self.plan)
         suggestions = placement.suggest_placements(state, self.plan, report)
+        nodes = self._map_nodes(state)
+        node_by_instance = {n.instance_name: n for n in resources.load_node_database()}
         return {
             "ok": True,
             "anchor": {
@@ -239,12 +303,20 @@ class PlannerService:
                 "cell_uu": anchor.cell_uu,
                 "source": anchor.source,
             },
+            "world": {
+                "min_x": round(min((n["x"] for n in nodes), default=-300000.0), 1),
+                "min_y": round(min((n["y"] for n in nodes), default=-300000.0), 1),
+                "max_x": round(max((n["x"] for n in nodes), default=400000.0), 1),
+                "max_y": round(max((n["y"] for n in nodes), default=300000.0), 1),
+            },
+            "base": self._base_centre(state),
             "built": [
                 {
                     "x": machine.placement.x,
                     "y": machine.placement.y,
                     "cell": list(anchor.world_to_cell(machine.placement.x, machine.placement.y)),
                     "building": self.docs.building_name(machine.building_class),
+                    "building_class": machine.building_class,
                     "recipe": self.docs.recipes[machine.recipe_class].display_name
                     if machine.recipe_class in self.docs.recipes
                     else (machine.recipe_class or "no recipe"),
@@ -252,10 +324,35 @@ class PlannerService:
                 }
                 for machine in state.machines
             ],
+            "miners": [
+                {
+                    "x": miner.placement.x,
+                    "y": miner.placement.y,
+                    "building": self.docs.building_name(miner.building_class),
+                    "building_class": miner.building_class,
+                    "clock": miner.clock,
+                    "node_x": round(node_by_instance[miner.node_instance].x, 1)
+                    if miner.node_instance in node_by_instance
+                    else None,
+                    "node_y": round(node_by_instance[miner.node_instance].y, 1)
+                    if miner.node_instance in node_by_instance
+                    else None,
+                    "resource": self.docs.item_name(
+                        node_by_instance[miner.node_instance].resource_class
+                    )
+                    if miner.node_instance in node_by_instance
+                    else "",
+                    "resource_class": node_by_instance[miner.node_instance].resource_class
+                    if miner.node_instance in node_by_instance
+                    else "",
+                }
+                for miner in state.miners
+            ],
             "foundations": [
                 {"x": f.placement.x, "y": f.placement.y} for f in state.foundations[:4000]
             ],
             "suggested": [s.describe(self.docs) for s in suggestions],
+            "nodes": nodes,
         }
 
     def status(self) -> dict[str, object]:

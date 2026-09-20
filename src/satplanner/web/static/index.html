@@ -17,7 +17,7 @@
 
 <nav id="tabs">
   <button data-tab="overview" class="active">Overview</button>
-  <button data-tab="grid">Grid</button>
+  <button data-tab="map">Map</button>
   <button data-tab="sourcing">Resources</button>
   <button data-tab="plan">Plan</button>
   <button data-tab="setup">Setup</button>
@@ -36,18 +36,39 @@
     <div id="unplanned"></div>
   </section>
 
-  <section id="tab-grid" class="tab">
-    <div class="grid-toolbar">
-      <span id="grid-anchor" class="muted"></span>
-      <span id="grid-readout" class="mono"></span>
-      <label><input type="checkbox" id="show-foundations" checked> foundations</label>
-      <button id="grid-reset">Recentre</button>
+  <section id="tab-map" class="tab">
+    <div class="map-toolbar">
+      <div class="map-buttons">
+        <button id="map-fit-world">Whole world</button>
+        <button id="map-fit-base">My factory</button>
+      </div>
+      <label class="check"><input type="checkbox" id="map-show-foundations" checked> foundations</label>
+      <label class="check"><input type="checkbox" id="map-show-links" checked> extractor links</label>
+      <label class="check"><input type="checkbox" id="map-show-tapped" checked> nodes I already mine</label>
+      <span id="map-readout" class="mono map-readout"></span>
     </div>
-    <canvas id="grid-canvas"></canvas>
+
+    <div id="map-shell">
+      <canvas id="map-canvas"></canvas>
+      <div id="map-tip"></div>
+    </div>
+
+    <div id="map-legend" class="map-legend"></div>
+
+    <div class="map-layers-head">
+      <h2>Resource layers</h2>
+      <div class="map-buttons">
+        <button id="map-layers-all">All</button>
+        <button id="map-layers-none">None</button>
+      </div>
+    </div>
+    <div id="map-layers" class="map-layers"></div>
+
+    <p id="map-summary" class="muted small"></p>
     <p class="muted small">
-      The grid is locked to your own foundations, so a cell here is the same cell in game.
-      Orange outlines are machines the plan is missing; hover to read the world coordinates.
-      Terrain is not known to the planner - check suggestions away from your base before building.
+      Drag to pan, scroll to zoom. The shading shows where resources cluster and marks real
+      water sources - it is not terrain. The planner does not know what the ground looks like,
+      so check anywhere away from your base in game before you build there.
     </p>
   </section>
 
@@ -85,6 +106,7 @@
 </main>
 
 <div id="toast"></div>
+<script src="/static/map.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

@@ -108,9 +108,21 @@ def main() -> int:
             else:
                 print(f"report: {len(report['rows'])} plan rows, {len(report['unplanned'])} unplanned kinds")
 
-            with urllib.request.urlopen(f"{base}/static/app.js", timeout=10) as response:
-                if "javascript" not in response.headers["Content-Type"]:
-                    problems.append(f"app.js served as {response.headers['Content-Type']}")
+            # The map draws the world from the parser's node database, which
+            # travels inside the exe. A packaging slip leaves it empty here
+            # while everything still works from source.
+            world = get(f"{base}/api/grid")
+            if not world.get("ok"):
+                problems.append(f"map failed: {world.get('error')}")
+            elif not world.get("nodes"):
+                problems.append("the map has no resource nodes - sav_data did not get bundled")
+            else:
+                print(f"map: {len(world['nodes'])} resource nodes, {len(world['miners'])} extractors")
+
+            for asset, expected in [("app.js", "javascript"), ("map.js", "javascript"), ("style.css", "css")]:
+                with urllib.request.urlopen(f"{base}/static/{asset}", timeout=10) as response:
+                    if expected not in response.headers["Content-Type"]:
+                        problems.append(f"{asset} served as {response.headers['Content-Type']}")
 
             if problems:
                 for problem in problems:

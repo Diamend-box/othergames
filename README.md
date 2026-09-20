@@ -25,6 +25,13 @@ browser; it re-reads your save every minute, or on demand.
   that lattice's exact phase by taking a vote across all your placed
   foundations, so a cell in the app is the same cell in the game and every
   coordinate it suggests is one you can fly to.
+- **Puts it all on a world map.** One continuous view: zoomed out it is the
+  whole 7 km world with all 607 resource nodes on it, zoom in and it becomes
+  your factory on its foundation lattice with a glyph per machine. Colour says
+  one thing only - blue is what you built, orange is what the plan says to
+  build or mine next, grey is a node you already work, and anything unmarked
+  is free. Purity is marker size, the resource itself is the glyph, and every
+  resource is a layer you can switch off.
 - **Diffs against your plan** - per block, per building, per recipe: how many
   stand, how many were wanted, how many are missing.
 - **Tells you what to build next** - the plan's blocks sorted into stages, so
@@ -145,6 +152,10 @@ game, and a real save:
   like. Placement suggestions avoid cells that are already occupied and cluster
   near their block, but the app will happily suggest a cell in a lake. Near an
   existing base they are sound; far from one, check before building.
+- **The map has no terrain.** The backdrop shades where resources cluster and
+  marks real water sources, both from the node database. It is not a height
+  map and nothing on it tells you whether ground is buildable, so check
+  anywhere away from your base in game before you commit to it.
 - **The grid needs foundations.** A base built freehand on terrain has no
   lattice to recover; the app says so and falls back to the world origin. Lay
   foundations anywhere and refresh.
@@ -182,11 +193,12 @@ src/satplanner/
     resources.py      node selection and extraction rates
     placement.py      where the missing machines should go
   web/                the local server and the browser UI
+    static/map.js     the world map: backdrop, markers, layers, zoom and hit testing
 scripts/
   fetch_parser.py     downloads the save parser into vendor/
   build_exe.py        packages the Windows executable
-  smoke_exe.py        starts the packaged executable and checks it serves a report
-tests/                93 tests; fixtures include a real save, the game docs and a Modeler export
+  smoke_exe.py        starts the packaged executable and checks it serves a report and a map
+tests/                102 tests; fixtures include a real save, the game docs and a Modeler export
 ```
 
 Run the tests with `python -m pytest`.
